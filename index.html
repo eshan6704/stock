@@ -44,8 +44,8 @@
             border-top: 2px solid #ccc;
         }
 
-        #backendDiv { background: #f8f8f8; display: none; }
-        #frontendDiv { background: #eef7ff; display: block; }
+        #backendDiv { background: #f8f8f8; display: block; } /* show by default */
+        #frontendDiv { background: #eef7ff; display: none; }
 
         /* Workspace area */
         #workspaceArea {
@@ -71,7 +71,7 @@
 
         <!-- Request type dropdown -->
         <select id="reqType">
-            <option>stock_info</option>
+            <option>info</option>
             <option>intraday</option>
             <option>daily</option>
             <option>qresult</option>
@@ -121,10 +121,10 @@
         }
 
         // Fetch from backend
-        async function fetchFromBackend(type, name, req_type) {
+        async function fetchFromBackend(mode, req_type, name) {
             try {
                 const app = await connectBackend();
-                const result = await app.predict("/fetch_data", [type, name, req_type]);
+                const result = await app.predict("/fetch_data", [mode, req_type, name]);
                 return result.data || ["<p>No data returned from backend.</p>"];
             } catch (err) {
                 console.error("Backend error:", err);
@@ -134,11 +134,11 @@
 
         // Fetch button
         window.fetchNow = async function() {
-            const type = window.currentMode || "stock";
-            const name = document.getElementById("symbolInput").value;
+            const mode = window.currentMode || "stock";
             const req_type = document.getElementById("reqType").value;
+            const name = document.getElementById("symbolInput").value;
 
-            const responseBlocks = await fetchFromBackend(type, name, req_type);
+            const responseBlocks = await fetchFromBackend(mode, req_type, name);
 
             const backendArea = document.getElementById("backendDiv");
             backendArea.innerHTML = ""; // clear old
@@ -147,7 +147,7 @@
                 backendArea.innerHTML += "<hr>";
             });
 
-            // Show backend by default after fetch
+            // Show backendDiv by default after fetch
             if(currentView === 'backend') backendArea.style.display = "block";
         };
 
@@ -180,7 +180,7 @@
                 document.getElementById("btnIndex").classList.remove("active");
                 document.getElementById("symbolInput").value = "ITC";
                 document.getElementById("reqType").innerHTML = `
-                    <option>stock_info</option>
+                    <option>info</option>
                     <option>intraday</option>
                     <option>daily</option>
                     <option>qresult</option>
@@ -195,7 +195,7 @@
                 document.getElementById("btnIndex").classList.add("active");
                 document.getElementById("symbolInput").value = "NIFTY 50";
                 document.getElementById("reqType").innerHTML = `
-                    <option>indices</option>
+                    <option>index</option>
                     <option>open</option>
                     <option>preopen</option>
                     <option>ce</option>
