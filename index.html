@@ -1,380 +1,216 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8" />
-<title>DataCollector — Stacked Subtables</title>
-<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-<style>
-  :root{
-    --accent:#0077cc;
-    --panel:#fff;
-    --border:#ddd;
-  }
-  body{font-family:Arial, Helvetica, sans-serif; padding:18px; margin:0; background:#fafafa; color:#222;}
-  h2{margin:0 0 12px 0;}
-  .input-tabs-row{display:flex; align-items:center; gap:18px; flex-wrap:wrap; margin-bottom:16px;}
-  #symbol{padding:8px; font-size:14px; border:1px solid var(--border); border-radius:4px; width:160px; margin-right:8px;}
-  .tabs{display:flex; gap:8px; flex-wrap:wrap;}
-  .tab-btn{padding:8px 12px; background:#fff; border:1px solid var(--border); border-radius:6px; cursor:pointer;}
-  .tab-btn.active{background:#222; color:#fff; border-color:#222;}
-  .panel{background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:14px; box-shadow:0 2px 6px rgba(0,0,0,0.03);}
-  .main-table-wrap{height:800px; overflow:auto; border:1px solid var(--border); border-radius:6px; padding:8px; background:linear-gradient(#fff,#fbfbfb);}
-  .table-below-chart{margin-top:18px; width:100%; max-width:100vw; height:340px; overflow:auto; border:1px solid var(--border); border-radius:6px; background:linear-gradient(#fff,#fbfbfb);}
-  table.main-table{width:100%; border-collapse:collapse; font-size:13px;}
-  table.main-table th, table.main-table td{padding:8px; border-bottom:1px solid #eee; text-align:left; vertical-align:top;}
-  table.main-table tr:nth-child(even){background:#fafafa;}
-  table.main-table th{background:#f5f5f5; font-weight:600; position:sticky; top:0; z-index:2}
-  .col-key{width:28%; max-width:320px; font-weight:600; color:#333;}
-  .muted{color:#666; font-size:13px;}
-  .compact{font-size:13px;}
-  .chart-row{display:block;}
-  .chart-controls{margin-bottom:12px;}
-  .plotly-wrap{width:100%; min-width:600px; max-width:100vw;}
-</style>
+    <title>Stock / Index App</title>
+    <style>
+        body { margin: 0; font-family: Arial; }
+
+        /* Top bar */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            background: #222;
+            padding: 8px;
+            color: white;
+            gap: 10px;
+        }
+
+        button, select, input {
+            height: 28px;
+            padding: 2px 6px;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        button.active {
+            background: #00aaff;
+            color: white;
+        }
+
+        button:not(.active) {
+            background: #555;
+            color: white;
+        }
+
+        select, input {
+            font-weight: normal;
+        }
+
+        /* Backend / Frontend Divs */
+        #backendDiv, #frontendDiv {
+            padding: 15px;
+            border-top: 2px solid #ccc;
+        }
+
+        #backendDiv { background: #f8f8f8; display: none; }
+        #frontendDiv { background: #eef7ff; display: block; }
+
+        /* Workspace area */
+        #workspaceArea {
+            padding: 20px;
+            min-height: 400px;
+            border-top: 2px solid #ddd;
+            background: #fff;
+        }
+    </style>
 </head>
+
 <body>
 
+    <!-- TOP BAR -->
+    <div class="top-bar">
 
-<div class="input-tabs-row">
-  <input id="symbol" placeholder="RELIANCE" />
-  <div class="tabs">
-    <button class="tab-btn" data-tab="response" id="tabBtn-response">Response</button>
-    <button class="tab-btn" data-tab="table" id="tabBtn-table">Table</button>
-    <button class="tab-btn" data-tab="info" id="tabBtn-info">info</button>
-    <button class="tab-btn" data-tab="intraday" id="tabBtn-intraday">intraday</button>
-    <button class="tab-btn" data-tab="daily" id="tabBtn-daily">daily</button>
-    <button class="tab-btn" data-tab="qresult" id="tabBtn-qresult">qresult</button>
-    <button class="tab-btn" data-tab="result" id="tabBtn-result">result</button>
-    <button class="tab-btn" data-tab="balance" id="tabBtn-balance">balance</button>
-    <button class="tab-btn" data-tab="cashflow" id="tabBtn-cashflow">cashflow</button>
-    <button class="tab-btn" data-tab="split" id="tabBtn-split">split</button>
-    <button class="tab-btn" data-tab="divident" id="tabBtn-divident">divident</button>
-  </div>
-</div>
+        <!-- Stock / Index tabs -->
+        <button id="btnStock" class="active" onclick="setMode('stock')">Stock</button>
+        <button id="btnIndex" onclick="setMode('index')">Index</button>
 
-<div id="tabPanel" class="panel">
-  <div id="panel-response" class="tab-panel" style="display:none;">
-    <h3>Raw Response:</h3>
-    <pre id="output"></pre>
-  </div>
-  <div id="panel-table" class="tab-panel" style="display:none;">
-    <h3>Summary Table</h3>
-    <div id="mainTableWrap" class="main-table-wrap">
-      <div id="mainTableInner" class="compact">No data loaded yet.</div>
-    </div>
-  </div>
-  <div id="panel-info" class="tab-panel" style="display:none;">
-    <div class="muted" style="padding:10px;">Blank. Add content later for "info" tab.</div>
-  </div>
-  <div id="panel-intraday" class="tab-panel" style="display:none;">
-    <div class="chart-controls">
-      <label>Chart type: 
-        <select id="intradayChartType">
-          <option value="line">Line (Close)</option>
-          <option value="candlestick">Candlestick</option>
+        <!-- Symbol input -->
+        <input type="text" id="symbolInput" value="ITC" style="width:90px;">
+
+        <!-- Request type dropdown -->
+        <select id="reqType">
+            <option>stock_info</option>
+            <option>intraday</option>
+            <option>daily</option>
+            <option>qresult</option>
+            <option>result</option>
+            <option>balance</option>
+            <option>cashflow</option>
+            <option>dividend</option>
+            <option>split</option>
         </select>
-      </label>
-    </div>
-    <div class="chart-row">
-      <div class="plotly-wrap"><div id="intradayChart"></div></div>
-      <div id="intradayTableWrap" class="table-below-chart">
-        <div id="intradayTableInner" class="compact">No data loaded yet.</div>
-      </div>
-    </div>
-  </div>
-  <div id="panel-daily" class="tab-panel" style="display:none;">
-    <div class="chart-controls">
-      <label>Chart type: 
-        <select id="dailyChartType">
-          <option value="line">Line (Close)</option>
-          <option value="candlestick">Candlestick</option>
-        </select>
-      </label>
-    </div>
-    <div class="chart-row">
-      <div class="plotly-wrap"><div id="dailyChart"></div></div>
-      <div id="dailyTableWrap" class="table-below-chart">
-        <div id="dailyTableInner" class="compact">No data loaded yet.</div>
-      </div>
-    </div>
-  </div>
-  <!-- Other tab panels remain unchanged -->
-  <div id="panel-qresult" class="tab-panel" style="display:none;">
-    <div class="muted" style="padding:10px;">Blank. Add content later for "qresult" tab.</div>
-  </div>
-  <div id="panel-result" class="tab-panel" style="display:none;">
-    <div class="muted" style="padding:10px;">Blank. Add content later for "result" tab.</div>
-  </div>
-  <div id="panel-balance" class="tab-panel" style="display:none;">
-    <div class="muted" style="padding:10px;">Blank. Add content later for "balance" tab.</div>
-  </div>
-  <div id="panel-cashflow" class="tab-panel" style="display:none;">
-    <div class="muted" style="padding:10px;">Blank. Add content later for "cashflow" tab.</div>
-  </div>
-  <div id="panel-split" class="tab-panel" style="display:none;">
-    <div class="muted" style="padding:10px;">Blank. Add content later for "split" tab.</div>
-  </div>
-  <div id="panel-divident" class="tab-panel" style="display:none;">
-    <div class="muted" style="padding:10px;">Blank. Add content later for "divident" tab.</div>
-  </div>
-</div>
 
-<script type="module">
-import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
+        <!-- Fetch -->
+        <button onclick="fetchNow()">Fetch</button>
 
-let appInstance = null;
-let currentActiveTab = null;
-let responseData = null;
-let currentReqType = null;
-const tabNames = [
-  "response","table","info","intraday","daily","qresult","result","balance","cashflow","split","divident"
-];
+        <!-- Backend / Frontend tabs -->
+        <button id="btnBackend" class="active" onclick="setDataView('backend')">Backend</button>
+        <button id="btnFrontend" onclick="setDataView('frontend')">Frontend</button>
 
-async function connectBackend(){
-  if(!appInstance){
-    appInstance = await Client.connect("eshan6704/datacollecter");
-  }
-  return appInstance;
-}
-async function fetchStockData(symbol, req_type){
-  const app = await connectBackend();
-  const result = await app.predict("/fetch_data", [symbol, req_type, ""]);
-  return result.data[0];
-}
-function escapeHtml(str){
-  if(str === null || str === undefined) return '';
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-function buildArrayOfDictTable(array) {
-  if (!Array.isArray(array) || array.length === 0) {
-    return `<div class="muted">No data in array.</div>`;
-  }
-  const columns = Array.from(new Set(array.flatMap(obj => Object.keys(obj))));
-  let thead = `<tr>${columns.map(col => `<th>${escapeHtml(col)}</th>`).join('')}</tr>`;
-  let tbody = array.map(row =>
-    `<tr>${columns.map(col => `<td>${escapeHtml(row[col])}</td>`).join('')}</tr>`
-  ).join('');
-  return `<table class="main-table"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
-}
-function buildDictTable(obj) {
-  if (!obj || typeof obj !== 'object') {
-    return `<div class="muted">No details available.</div>`;
-  }
-  let rows = Object.keys(obj).map(k =>
-    `<tr><td class="col-key">${escapeHtml(k)}</td><td>${escapeHtml(obj[k])}</td></tr>`
-  ).join('');
-  return `<table class="main-table"><tbody>${rows}</tbody></table>`;
-}
-function buildTransposedTable(array) {
-  if (!Array.isArray(array) || array.length === 0) {
-    return `<div class="muted">No data in array.</div>`;
-  }
-  const columns = array.map((item, idx) => `Entry ${idx+1}`);
-  const keys = Array.from(new Set(array.flatMap(obj => Object.keys(obj))));
-  let thead = `<tr><th>Field</th>${columns.map(col => `<th>${escapeHtml(col)}</th>`).join('')}</tr>`;
-  let tbody = keys.map(field => 
-    `<tr><td class="col-key">${escapeHtml(field)}</td>${array.map(obj => `<td>${escapeHtml(obj[field])}</td>`).join('')}</tr>`
-  ).join('');
-  return `<table class="main-table"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
-}
-function buildMainTable(data, tab) {
-  if (!data) return `<div class="muted">No data available.</div>`;
-  if (tab === "info" && typeof data.info === "object" && !Array.isArray(data.info)) {
-    return buildDictTable(data.info);
-  }
-  let val = data[tab];
-  if (typeof val === "string" && (val.trim().startsWith("[") || val.trim().startsWith("{"))) {
-    try { val = JSON.parse(val); } catch(e) {}
-  }
-  if (["qresult", "result", "balance", "cashflow"].includes(tab) && Array.isArray(val)) {
-    return buildTransposedTable(val);
-  }
-  if (Array.isArray(val)) {
-    return buildArrayOfDictTable(val);
-  }
-  if (typeof val === "object" && val !== null) {
-    for (let key of Object.keys(val)) {
-      let v = val[key];
-      if (typeof v === "string" && v.trim().startsWith("[")) {
-        try { v = JSON.parse(v); } catch(e) {}
-      }
-      if (Array.isArray(v)) {
-        return buildArrayOfDictTable(v);
-      }
-    }
-    return buildDictTable(val);
-  }
-  return `<div class="muted">No object/array data to show for this tab.</div>`;
-}
-function detectDateKey(array) {
-  if (!array || !array.length) return "Date";
-  const first = array[0];
-  for (let k of ["Date","Datetime","date"]) if (k in first) return k;
-  return Object.keys(first)[0] || "Date";
-}
-function getArrayFromTabData(data, tab) {
-  let arr = data?.[tab];
-  if (typeof arr === "string" && (arr.trim().startsWith("[") || arr.trim().startsWith("{"))) {
-    try { arr = JSON.parse(arr); } catch(e){}
-  }
-  if (!Array.isArray(arr) && typeof arr === "object" && arr !== null) {
-    for (let k in arr) {
-      if (Array.isArray(arr[k])) return arr[k];
-      if (typeof arr[k] === "string" && arr[k].trim().startsWith("[")) {
-        try { return JSON.parse(arr[k]); } catch(e){}
-      }
-    }
-  }
-  return Array.isArray(arr) ? arr : [];
-}
-function plotLineAndVolumeChart(containerId, data, xField, yField, volField, labelBase="") {
-  if(!data || data.length===0) {
-    if(document.getElementById(containerId)) Plotly.newPlot(containerId, [], {title: 'No data'}, {displayModeBar: false});
-    return;
-  }
-  const x = data.map(row => row[xField]);
-  const y = data.map(row => Number(row[yField]));
-  const v = data.map(row => Number(row[volField]));
-  const traceLine = {
-    x, y, name: labelBase+" Close", type:"scatter", mode:"lines+markers", line:{color:"#0077cc"}, yaxis:'y1'
-  };
-  const traceVol = {
-    x, y: v, name:"Volume", type:"bar", marker:{color:'#aaa'}, yaxis:'y2', opacity: 0.7
-  };
-  if(document.getElementById(containerId)) {
-    Plotly.newPlot(containerId, [traceLine, traceVol], {
-      grid: {rows:2, columns:1, subplots:[['xy'],['x2y2']], roworder:'top to bottom'},
-      xaxis: {title:xField, showgrid:true, rangeslider: {visible: true}},
-      yaxis: {title:yField, showgrid:true},
-      xaxis2: {anchor:'y2', title:xField, showticklabels:true},
-      yaxis2: {title:'Volume', domain:[0,0.26], showgrid:true},
-      legend: {orientation:'h',x:0.03, y:-0.13, xanchor:'left'},
-      title: labelBase + " Price & Volume",
-      margin:{t:30,r:15,b:42,l:32},
-      template: 'plotly_white',
-    }, {responsive:true,displayModeBar:true});
-  }
-}
-function plotCandleChart(containerId, data, xField, open, high, low, close, volField, labelBase="") {
-  if(!data || data.length===0) {
-    if(document.getElementById(containerId)) Plotly.newPlot(containerId, [], {title: 'No data'}, {displayModeBar: false});
-    return;
-  }
-  const x = data.map(row => row[xField]);
-  const traceCandle = {
-    x,
-    open: data.map(row => Number(row[open])),
-    high: data.map(row => Number(row[high])),
-    low: data.map(row => Number(row[low])),
-    close: data.map(row => Number(row[close])),
-    increasing: {line: {color: '#4bb543'}},
-    decreasing: {line: {color: '#e45756'}},
-    type: 'candlestick', xaxis: 'x', yaxis: 'y1', name: labelBase+" Candle"
-  };
-  const v = data.map(row => Number(row[volField]));
-  const traceVol = {
-    x, y:v, name:"Volume", type:"bar", marker:{color:'#aaa'}, yaxis:'y2', opacity: 0.7
-  };
-  if(document.getElementById(containerId)) {
-    Plotly.newPlot(containerId, [traceCandle, traceVol], {
-      grid: {rows:2, columns:1, subplots:[['xy'],['x2y2']], roworder:'top to bottom'},
-      xaxis: {title:xField, showgrid:true, rangeslider: {visible: false}},
-      yaxis: {title:"Price", showgrid:true},
-      xaxis2: {anchor:'y2', title:xField, showticklabels:true},
-      yaxis2: {title:'Volume', domain:[0,0.23], showgrid:true},
-      legend: {orientation:'h',x:0.03, y:-0.13, xanchor:'left'},
-      title: labelBase + " Candle & Volume",
-      margin:{t:30,r:15,b:42,l:32},
-      template: 'plotly_white',
-    }, {responsive:true,displayModeBar:true});
-  }
-}
-function showIntradayTab(data) {
-  const arr = getArrayFromTabData(data, "intraday");
-  const dateKey = detectDateKey(arr);
-  const chartType = document.getElementById("intradayChartType")?.value || "line";
-  const tableDiv = document.getElementById("intradayTableInner");
-  if (tableDiv) tableDiv.innerHTML = buildArrayOfDictTable(arr);
-  if (document.getElementById("intradayChart")) {
-    if(chartType === "line") {
-      plotLineAndVolumeChart("intradayChart", arr, dateKey, "Close", "Volume", "Intraday");
-    } else {
-      plotCandleChart("intradayChart", arr, dateKey, "Open", "High", "Low", "Close", "Volume", "Intraday");
-    }
-  }
-}
-function showDailyTab(data) {
-  const arr = getArrayFromTabData(data, "daily");
-  const dateKey = detectDateKey(arr);
-  const chartType = document.getElementById("dailyChartType")?.value || "line";
-  const tableDiv = document.getElementById("dailyTableInner");
-  if (tableDiv) tableDiv.innerHTML = buildArrayOfDictTable(arr);
-  if (document.getElementById("dailyChart")) {
-    if(chartType === "line") {
-      plotLineAndVolumeChart("dailyChart", arr, dateKey, "Close", "Volume", "Daily");
-    } else {
-      plotCandleChart("dailyChart", arr, dateKey, "Open", "High", "Low", "Close", "Volume", "Daily");
-    }
-  }
-}
-window.nestedDataStore = {};
-function showTab(tab){
-  tabNames.forEach(t=>{
-    document.getElementById(`panel-${t}`).style.display = (tab === t) ? "block" : "none";
-    document.getElementById(`tabBtn-${t}`).classList.toggle("active", tab === t);
-  });
-  currentActiveTab = tab;
-}
-tabNames.forEach(tab=>{
-  document.getElementById(`tabBtn-${tab}`).addEventListener("click", async ()=>{
-    const symbol = symbolInput.value.trim();
-    if (["info", "intraday", "daily", "qresult", "result", "balance", "cashflow", "split", "divident"].includes(tab)) {
-      if (!symbol) {
-        showTab("response");
-        outputEl.textContent = "Symbol is required!";
-        return;
-      }
-      currentReqType = tab;
-      outputEl.textContent = "Loading...";
-      try {
-        const result = await fetchStockData(symbol, tab);
-        responseData = result;
-        outputEl.textContent = JSON.stringify(result, null, 2);
-        if(tab === "intraday") {
-          showTab(tab);
-          setTimeout(()=>showIntradayTab(result), 60);
-        } else if(tab === "daily") {
-          showTab(tab);
-          setTimeout(()=>showDailyTab(result), 60);
-        } else {
-          mainTableWrap.innerHTML = buildMainTable(result, tab);
-          showTab(tab);
+    </div>
+
+    <!-- BACKEND DIV -->
+    <div id="backendDiv">
+        <h3>Backend Data</h3>
+    </div>
+
+    <!-- FRONTEND DIV -->
+    <div id="frontendDiv">
+        <h3>Frontend Extracted Data</h3>
+    </div>
+
+    <!-- Workspace area -->
+    <div id="workspaceArea">
+        <!-- Reserved for charts, tables, or other content -->
+    </div>
+
+    <script type="module">
+        import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
+
+        let appInstance = null;
+        let currentView = 'backend'; // default active data view
+
+        // Connect to backend
+        async function connectBackend() {
+            if (!appInstance) {
+                appInstance = await Client.connect("eshan6704/backend");
+            }
+            return appInstance;
         }
-      } catch(err) {
-        outputEl.textContent = "Error: " + (err.message || err);
-        showTab("response");
-      }
-    } else if (tab === "table") {
-      mainTableWrap.innerHTML = buildMainTable(responseData, currentReqType);
-      showTab("table");
-    } else {
-      showTab(tab);
-    }
-  });
-});
-document.getElementById("intradayChartType").addEventListener("change", ()=>{
-  if(responseData) showIntradayTab(responseData);
-});
-document.getElementById("dailyChartType").addEventListener("change", ()=>{
-  if(responseData) showDailyTab(responseData);
-});
-const symbolInput = document.getElementById('symbol');
-const outputEl = document.getElementById('output');
-const mainTableWrap = document.getElementById('mainTableInner');
-showTab("response");
-window.appendSubTable = function() {};
-window.createSubTableBlock = function() {};
-window.buildMainTable = buildMainTable;
-</script>
+
+        // Fetch from backend
+        async function fetchFromBackend(type, name, req_type) {
+            try {
+                const app = await connectBackend();
+                const result = await app.predict("/fetch_data", [type, name, req_type]);
+                return result.data || ["<p>No data returned from backend.</p>"];
+            } catch (err) {
+                console.error("Backend error:", err);
+                return [`<p style="color:red;">Backend error: ${err.message}</p>`];
+            }
+        }
+
+        // Fetch button
+        window.fetchNow = async function() {
+            const type = window.currentMode || "stock";
+            const name = document.getElementById("symbolInput").value;
+            const req_type = document.getElementById("reqType").value;
+
+            const responseBlocks = await fetchFromBackend(type, name, req_type);
+
+            const backendArea = document.getElementById("backendDiv");
+            backendArea.innerHTML = ""; // clear old
+            responseBlocks.forEach(block => {
+                backendArea.innerHTML += block;
+                backendArea.innerHTML += "<hr>";
+            });
+
+            // Show backend by default after fetch
+            if(currentView === 'backend') backendArea.style.display = "block";
+        };
+
+        // Toggle data view tabs
+        function setDataView(view) {
+            currentView = view;
+            const backendDiv = document.getElementById("backendDiv");
+            const frontendDiv = document.getElementById("frontendDiv");
+
+            if(view === 'backend'){
+                backendDiv.style.display = "block";
+                frontendDiv.style.display = "none";
+                document.getElementById("btnBackend").classList.add("active");
+                document.getElementById("btnFrontend").classList.remove("active");
+            } else {
+                backendDiv.style.display = "none";
+                frontendDiv.style.display = "block";
+                document.getElementById("btnBackend").classList.remove("active");
+                document.getElementById("btnFrontend").classList.add("active");
+            }
+        }
+
+        // Stock / Index tabs
+        function setMode(mode){
+            window.currentMode = mode;
+
+            // Tab highlight
+            if(mode === 'stock'){
+                document.getElementById("btnStock").classList.add("active");
+                document.getElementById("btnIndex").classList.remove("active");
+                document.getElementById("symbolInput").value = "ITC";
+                document.getElementById("reqType").innerHTML = `
+                    <option>stock_info</option>
+                    <option>intraday</option>
+                    <option>daily</option>
+                    <option>qresult</option>
+                    <option>result</option>
+                    <option>balance</option>
+                    <option>cashflow</option>
+                    <option>dividend</option>
+                    <option>split</option>
+                `;
+            } else {
+                document.getElementById("btnStock").classList.remove("active");
+                document.getElementById("btnIndex").classList.add("active");
+                document.getElementById("symbolInput").value = "NIFTY 50";
+                document.getElementById("reqType").innerHTML = `
+                    <option>indices</option>
+                    <option>open</option>
+                    <option>preopen</option>
+                    <option>ce</option>
+                    <option>pe</option>
+                    <option>future</option>
+                    <option>bhav</option>
+                    <option>highlow</option>
+                `;
+            }
+        }
+
+        // Initialize default view
+        setDataView('backend');
+        setMode('stock');
+    </script>
+
 </body>
 </html>
