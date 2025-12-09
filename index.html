@@ -5,7 +5,6 @@
     <style>
         body { margin: 0; font-family: Arial, sans-serif; background: #f5f5f5; }
 
-        /* Top bar */
         .top-bar {
             display: flex;
             align-items: center;
@@ -17,24 +16,190 @@
         }
 
         .top-bar button, .top-bar select, .top-bar input {
-            height: 28px;
-            padding: 2px 6px;
+            height: 32px;
+            padding: 6px 10px;
+            border-radius: 5px;
             border: none;
+            font-size: 14px;
+        }
+
+        #toggleBtn {
+            background: #4caf50;
+            color: white;
             cursor: pointer;
-            border-radius: 4px;
-            font-weight: bold;
         }
 
-        .top-bar button.active { background: #00aaff; color: white; }
-        .top-bar button:not(.active) { background: #555; color: white; }
-        .top-bar button:hover { background: #0099dd; }
-
-        .top-bar select, .top-bar input {
-            font-weight: normal;
-            border: 1px solid #aaa;
-            outline: none;
+        #fetchBtn {
+            background: #2196f3;
+            color: white;
+            cursor: pointer;
         }
 
+        #backendDiv, #frontendDiv {
+            padding: 15px;
+            background: #fff;
+            margin: 10px;
+            border-radius: 6px;
+            box-shadow: 0 0 6px rgba(0,0,0,0.1);
+        }
+
+        table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+        table, th, td { border: 1px solid #aaa; }
+        th, td { padding: 6px 8px; }
+        th { background: #00aaff; color: white; }
+    </style>
+</head>
+
+<body>
+
+    <div class="top-bar">
+        <button id="toggleBtn" onclick="toggleMode()">Switch to Index</button>
+
+        <input id="symbolInput" type="text" value="ITC" style="width:120px;">
+
+        <select id="reqType"></select>
+
+        <!-- DATE FIELD -->
+        <input id="dateInput" type="date" style="width:150px;">
+
+        <button id="fetchBtn" onclick="fetchNow()">Fetch</button>
+    </div>
+
+    <div id="backendDiv"><h3>Backend Output</h3></div>
+    <div id="frontendDiv"><h3>Frontend Extracted Tables</h3><p>No tables yet.</p></div>
+
+
+<script type="module">
+    import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
+
+    let appInstance = null;
+
+    let uiMode = "stock";       // For button / UI only
+    let backendMode = "stock";   // Always sent to backend
+
+    // Dropdown options
+    const reqOptions = {
+        stock: ["info","intraday","daily","qresult","result","balance","cashflow","dividend","split"],
+        index: ["indices","open","preopen","ce","pe","future","bhav","highlow"]
+    };
+
+    // Set default date = yesterday
+    function setDefaultDate() {
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        document.getElementById("dateInput").value = d.toISOString().split("T")[0];
+    }
+    setDefaultDate();
+
+    // Load dropdown options
+    function loadDropdown() {
+        document.getElementById("reqType").innerHTML =
+            reqOptions[backendMode].map(v => `<option value="${v}">${v}</option>`).join("");
+    }
+    loadDropdown();
+
+    // Toggle button UI
+    window.toggleMode = function() {
+        if (uiMode === "stock") {
+            uiMode = "index";
+            backendMode = "index";          // Update backend mode
+            document.getElementById("toggleBtn").textContent = "Switch to Stock";
+            document.getElementById("symbolInput").value = "NIFTY 50";
+        } else {
+            uiMode = "stock";
+            backendMode = "stock";          // Update backend mode
+            document.getElementById("toggleBtn").textContent = "Switch to Index";
+            document.getElementById("symbolInput").value = "ITC";
+        }
+        loadDropdown();
+    };
+
+    // Backend connect
+    async function connectBackend() {
+        if (!appInstance) {
+            appInstance = await Client.connect("eshan6704/backend");
+        }
+        return appInstance;
+    }
+
+    // Backend fetch (includes date)
+    async function fetchFromBackend(mode, req_type, name, date) {
+        try {
+            const app = await connectBackend();
+            const result = await app.predict("/fetch_data", [
+                mode,
+                req_type,
+                name,
+                date
+            ]);
+
+            if (Array.isArray(result.data)) return result.data;
+            if (typeof result.data === "string") return [result.data];
+
+            return ["<p>No data returned.</p>"];
+        } catch (err) {
+            return [`<p style="color:red;">Backend error: ${err.message}</p>`];
+        }
+    }
+
+    // MAIN FETCH
+    window.fetchNow = async function() {
+        const name = document.getElementById("symbolInput").value;
+        const req_type = document.getElementById("reqType").value;
+        const date = document.getElementById("dateInput").value;
+
+        const backendDiv = document.getElementById("backendDiv");
+        const frontendDiv = document.getElementById("frontendDiv");
+
+        // Display what is being sent to backend
+        backendDiv.innerHTML = `<h3>Backend Output</h3>
+            <p><strong>Parameters sent to backend:</strong></p>
+            <pre>
+mode: ${backendMode}
+req_type: ${req_type}
+symbol: ${name}
+date: ${date}
+            </pre>
+            <p>Loading...</p>`;
+
+        frontendDiv.innerHTML = "<h3>Frontend Extracted Tables</h3>";
+
+        try {
+            const responseBlocks = await fetchFromBackend(backendMode, req_type, name, date);
+
+            const backendFrag = document.createDocumentFragment();
+            const frontendFrag = document.createDocumentFragment();
+
+            responseBlocks.forEach(block => {
+                const blockDiv = document.createElement("div");
+                blockDiv.innerHTML = block;
+                backendFrag.appendChild(blockDiv);
+                backendFrag.appendChild(document.createElement("hr"));
+
+                const tempDiv = document.createElement("div");
+                tempDiv.innerHTML = block;
+                tempDiv.querySelectorAll("table").forEach(tbl => {
+                    frontendFrag.appendChild(tbl.cloneNode(true));
+                    frontendFrag.appendChild(document.createElement("hr"));
+                });
+            });
+
+            backendDiv.appendChild(backendFrag);
+
+            if (frontendFrag.children.length === 0) {
+                frontendDiv.innerHTML += "<p>No tables found.</p>";
+            } else {
+                frontendDiv.appendChild(frontendFrag);
+            }
+        } catch (err) {
+            backendDiv.innerHTML += `<p style="color:red;">Backend error: ${err.message}</p>`;
+        }
+    };
+
+</script>
+
+</body>
+</html>
         .top-bar select:focus, .top-bar input:focus {
             border-color: #00aaff;
         }
@@ -213,3 +378,4 @@
 
 </body>
 </html>
+
