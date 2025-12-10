@@ -83,8 +83,9 @@ let currentSide = "backend";
 
 // Dropdown options
 const reqOptions = {
-    stock: ["info","intraday","daily","nse_eq","qresult","result","balance","cashflow","dividend","split"],
-    index: ["indices","nse_open","nse_preopen","ce","pe","future","bhav","highlow"]
+
+    stock: [    "info", "intraday", "daily","nse_eq","nse_eq_hist","qresult", "result", "balance","cashflow", "dividend", "split", "other"],
+    index: [    "indices", "nse_open", "nse_preopen", "nse_fno","nse_future", "nse_bhav", "nse_highlow"]
 };
 
 // Default date = yesterday
@@ -212,3 +213,4 @@ updateSideDisplay();
 </script>
 </body>
 </html>
+
