@@ -130,7 +130,9 @@ async function fetchFromBackend(mode, req_type, name, date) {
 window.fetchNow = async function () {
     const name = document.getElementById("symbolInput").value;
     const req_type = document.getElementById("reqType").value;
-    const date = document.getElementById("dateInput").value;
+    const rawDate = document.getElementById("dateInput").value;  
+    let date = rawDate.split("-").reverse().join("-");
+
 
     // Update compact status
     document.getElementById("statusBox").innerText =
@@ -213,4 +215,5 @@ updateSideDisplay();
 </script>
 </body>
 </html>
+
 
