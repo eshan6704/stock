@@ -5,6 +5,7 @@
     <style>
         body { margin: 0; font-family: Arial, sans-serif; background: #f5f5f5; }
 
+        /* Top bar */
         .top-bar {
             display: flex;
             align-items: center;
@@ -23,17 +24,7 @@
             font-size: 14px;
         }
 
-        #toggleBtn {
-            background: #4caf50;
-            color: white;
-            cursor: pointer;
-        }
-
-        #fetchBtn {
-            background: #2196f3;
-            color: white;
-            cursor: pointer;
-        }
+        .active { background:#00aaff; color:white; }
 
         #backendDiv, #frontendDiv {
             padding: 15px;
@@ -41,19 +32,22 @@
             margin: 10px;
             border-radius: 6px;
             box-shadow: 0 0 6px rgba(0,0,0,0.1);
+            max-height: 450px;
+            overflow-y: auto;
         }
 
         table { border-collapse: collapse; width: 100%; margin: 10px 0; }
         table, th, td { border: 1px solid #aaa; }
-        th, td { padding: 6px 8px; }
-        th { background: #00aaff; color: white; }
+        th { background: #00aaff; color: white; padding: 6px; }
+        td { padding: 6px; }
     </style>
 </head>
 
 <body>
 
     <div class="top-bar">
-        <button id="toggleBtn" onclick="toggleMode()">Switch to Index</button>
+        <button id="btnStock" class="active" onclick="setMode('stock')">Stock</button>
+        <button id="btnIndex" onclick="setMode('index')">Index</button>
 
         <input id="symbolInput" type="text" value="ITC" style="width:120px;">
 
@@ -62,7 +56,7 @@
         <!-- DATE FIELD -->
         <input id="dateInput" type="date" style="width:150px;">
 
-        <button id="fetchBtn" onclick="fetchNow()">Fetch</button>
+        <button id="fetchBtn" onclick="fetchNow()" style="background:#2196f3;color:white;">Fetch</button>
     </div>
 
     <div id="backendDiv"><h3>Backend Output</h3></div>
@@ -73,11 +67,9 @@
     import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
 
     let appInstance = null;
+    let currentMode = "stock";
 
-    let uiMode = "stock";       // For button / UI only
-    let backendMode = "stock";   // Always sent to backend
-
-    // Dropdown options
+    // Dropdown data
     const reqOptions = {
         stock: ["info","intraday","daily","qresult","result","balance","cashflow","dividend","split"],
         index: ["indices","open","preopen","ce","pe","future","bhav","highlow"]
@@ -91,30 +83,7 @@
     }
     setDefaultDate();
 
-    // Load dropdown options
-    function loadDropdown() {
-        document.getElementById("reqType").innerHTML =
-            reqOptions[backendMode].map(v => `<option value="${v}">${v}</option>`).join("");
-    }
-    loadDropdown();
-
-    // Toggle button UI
-    window.toggleMode = function() {
-        if (uiMode === "stock") {
-            uiMode = "index";
-            backendMode = "index";          // Update backend mode
-            document.getElementById("toggleBtn").textContent = "Switch to Stock";
-            document.getElementById("symbolInput").value = "NIFTY 50";
-        } else {
-            uiMode = "stock";
-            backendMode = "stock";          // Update backend mode
-            document.getElementById("toggleBtn").textContent = "Switch to Index";
-            document.getElementById("symbolInput").value = "ITC";
-        }
-        loadDropdown();
-    };
-
-    // Backend connect
+    // Connect backend
     async function connectBackend() {
         if (!appInstance) {
             appInstance = await Client.connect("eshan6704/backend");
@@ -122,15 +91,12 @@
         return appInstance;
     }
 
-    // Backend fetch (includes date)
+    // Backend fetch function
     async function fetchFromBackend(mode, req_type, name, date) {
         try {
             const app = await connectBackend();
             const result = await app.predict("/fetch_data", [
-                mode,
-                req_type,
-                name,
-                date
+                mode, req_type, name, date
             ]);
 
             if (Array.isArray(result.data)) return result.data;
@@ -138,12 +104,12 @@
 
             return ["<p>No data returned.</p>"];
         } catch (err) {
-            return [`<p style="color:red;">Backend error: ${err.message}</p>`];
+            return [`<p style='color:red;'>Backend error: ${err.message}</p>`];
         }
     }
 
-    // MAIN FETCH
-    window.fetchNow = async function() {
+    // Main fetch
+    window.fetchNow = async function () {
         const name = document.getElementById("symbolInput").value;
         const req_type = document.getElementById("reqType").value;
         const date = document.getElementById("dateInput").value;
@@ -151,231 +117,66 @@
         const backendDiv = document.getElementById("backendDiv");
         const frontendDiv = document.getElementById("frontendDiv");
 
-        // Display what is being sent to backend
         backendDiv.innerHTML = `<h3>Backend Output</h3>
-            <p><strong>Parameters sent to backend:</strong></p>
-            <pre>
-mode: ${backendMode}
+        <pre>
+mode: ${currentMode}
 req_type: ${req_type}
 symbol: ${name}
 date: ${date}
-            </pre>
-            <p>Loading...</p>`;
+        </pre>
+        <p>Loading...</p>`;
 
         frontendDiv.innerHTML = "<h3>Frontend Extracted Tables</h3>";
 
-        try {
-            const responseBlocks = await fetchFromBackend(backendMode, req_type, name, date);
+        const blocks = await fetchFromBackend(currentMode, req_type, name, date);
 
-            const backendFrag = document.createDocumentFragment();
-            const frontendFrag = document.createDocumentFragment();
+        const frag1 = document.createDocumentFragment();
+        const frag2 = document.createDocumentFragment();
 
-            responseBlocks.forEach(block => {
-                const blockDiv = document.createElement("div");
-                blockDiv.innerHTML = block;
-                backendFrag.appendChild(blockDiv);
-                backendFrag.appendChild(document.createElement("hr"));
+        blocks.forEach(block => {
+            const div = document.createElement("div");
+            div.innerHTML = block;
+            frag1.appendChild(div);
+            frag1.appendChild(document.createElement("hr"));
 
-                const tempDiv = document.createElement("div");
-                tempDiv.innerHTML = block;
-                tempDiv.querySelectorAll("table").forEach(tbl => {
-                    frontendFrag.appendChild(tbl.cloneNode(true));
-                    frontendFrag.appendChild(document.createElement("hr"));
-                });
+            const temp = document.createElement("div");
+            temp.innerHTML = block;
+            temp.querySelectorAll("table").forEach(tbl => {
+                frag2.appendChild(tbl.cloneNode(true));
+                frag2.appendChild(document.createElement("hr"));
             });
+        });
 
-            backendDiv.appendChild(backendFrag);
+        backendDiv.appendChild(frag1);
 
-            if (frontendFrag.children.length === 0) {
-                frontendDiv.innerHTML += "<p>No tables found.</p>";
-            } else {
-                frontendDiv.appendChild(frontendFrag);
-            }
-        } catch (err) {
-            backendDiv.innerHTML += `<p style="color:red;">Backend error: ${err.message}</p>`;
+        if (frag2.children.length === 0) {
+            frontendDiv.innerHTML += "<p>No tables found.</p>";
+        } else {
+            frontendDiv.appendChild(frag2);
         }
     };
+
+    // Switch stock/index mode
+    window.setMode = function (mode) {
+        currentMode = mode;
+        document.getElementById("symbolInput").value = (mode === "stock") ? "ITC" : "NIFTY 50";
+
+        document.getElementById("reqType").innerHTML =
+            reqOptions[mode].map(x => `<option>${x}</option>`).join("");
+
+        document.getElementById("btnStock").classList.toggle("active", mode === "stock");
+        document.getElementById("btnIndex").classList.toggle("active", mode === "index");
+    };
+
+    // Enter key
+    document.getElementById("symbolInput").addEventListener("keypress", e => {
+        if (e.key === "Enter") fetchNow();
+    });
+
+    // Initialize
+    setMode("stock");
 
 </script>
 
 </body>
 </html>
-        .top-bar select:focus, .top-bar input:focus {
-            border-color: #00aaff;
-        }
-
-        /* Backend / Frontend Divs */
-        #backendDiv, #frontendDiv {
-            padding: 15px;
-            border-top: 2px solid #ccc;
-            border-radius: 6px;
-            box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
-            max-height: 400px;
-            overflow-y: auto;
-            margin: 10px;
-        }
-
-        #backendDiv { background: #f8f8f8; }
-        #frontendDiv { background: #eef7ff; }
-
-        /* Workspace area */
-        #workspaceArea {
-            padding: 20px;
-            min-height: 400px;
-            border-top: 2px solid #ddd;
-            background: #fff;
-            border-radius: 6px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-            margin: 10px;
-        }
-
-        /* Tables style */
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin-bottom: 10px;
-        }
-
-        table, th, td {
-            border: 1px solid #aaa;
-        }
-
-        th, td {
-            padding: 6px 8px;
-            text-align: left;
-        }
-
-        th {
-            background-color: #00aaff;
-            color: white;
-        }
-    </style>
-</head>
-
-<body>
-
-    <!-- TOP BAR -->
-    <div class="top-bar">
-        <button id="btnStock" class="active" onclick="setMode('stock')" aria-label="Switch to Stock">Stock</button>
-        <button id="btnIndex" onclick="setMode('index')" aria-label="Switch to Index">Index</button>
-
-        <input type="text" id="symbolInput" value="ITC" style="width:90px;" aria-label="Stock or Index Symbol">
-
-        <select id="reqType" aria-label="Request Type"></select>
-
-        <button onclick="fetchNow()" aria-label="Fetch data from backend">Fetch</button>
-    </div>
-
-    <!-- BACKEND DIV -->
-    <div id="backendDiv">
-        <h3>Backend Data</h3>
-    </div>
-
-    <!-- FRONTEND DIV -->
-    <div id="frontendDiv">
-        <h3>Frontend Extracted Tables</h3>
-        <p>No tables extracted yet.</p>
-    </div>
-
-    <!-- Workspace area -->
-    <div id="workspaceArea"></div>
-
-    <script type="module">
-        import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
-
-        let appInstance = null;
-        let currentMode = 'stock';
-
-        const reqOptions = {
-            stock: ["info","intraday","daily","qresult","result","balance","cashflow","dividend","split"],
-            index: ["index","open","preopen","ce","pe","future","bhav","highlow"]
-        };
-
-        async function connectBackend() {
-            if (!appInstance) {
-                appInstance = await Client.connect("eshan6704/backend");
-            }
-            return appInstance;
-        }
-
-        async function fetchFromBackend(mode, req_type, name) {
-            try {
-                const app = await connectBackend();
-                const result = await app.predict("/fetch_data", [mode, req_type, name]);
-                if (Array.isArray(result.data)) return result.data;
-                if (typeof result.data === "string") return [result.data];
-                return ["<p>No data returned from backend.</p>"];
-            } catch (err) {
-                console.error("Backend error:", err);
-                return [`<p style="color:red;">Backend error: ${err.message}</p>`];
-            }
-        }
-
-        window.fetchNow = async function() {
-            const mode = currentMode;
-            const req_type = document.getElementById("reqType").value;
-            const name = document.getElementById("symbolInput").value;
-
-            const responseBlocks = await fetchFromBackend(mode, req_type, name);
-
-            const backendArea = document.getElementById("backendDiv");
-            const frontendArea = document.getElementById("frontendDiv");
-
-            // Clear old content
-            backendArea.innerHTML = "<h3>Backend Data</h3>";
-            frontendArea.innerHTML = "<h3>Frontend Extracted Tables</h3>";
-
-            const fragmentBackend = document.createDocumentFragment();
-            const fragmentFrontend = document.createDocumentFragment();
-
-            responseBlocks.forEach(block => {
-                // --- Append to backend ---
-                const divBackend = document.createElement("div");
-                divBackend.innerHTML = block;
-                fragmentBackend.appendChild(divBackend);
-                fragmentBackend.appendChild(document.createElement("hr"));
-
-                // --- Extract tables for frontend ---
-                const tempDiv = document.createElement("div");
-                tempDiv.innerHTML = block;
-                const tables = tempDiv.querySelectorAll("table");
-                tables.forEach(tbl => {
-                    const tblClone = tbl.cloneNode(true);
-                    fragmentFrontend.appendChild(tblClone);
-                    fragmentFrontend.appendChild(document.createElement("hr"));
-                });
-            });
-
-            backendArea.appendChild(fragmentBackend);
-            frontendArea.appendChild(fragmentFrontend);
-
-            if(fragmentFrontend.children.length === 0){
-                frontendArea.innerHTML += "<p>No tables found in backend response.</p>";
-            }
-        };
-
-        function setMode(mode){
-            currentMode = mode;
-            const symbolInput = document.getElementById("symbolInput");
-            const reqType = document.getElementById("reqType");
-
-            symbolInput.value = (mode === 'stock') ? "ITC" : "NIFTY 50";
-            reqType.innerHTML = reqOptions[mode].map(opt => `<option>${opt}</option>`).join("");
-
-            document.getElementById("btnStock").classList.toggle("active", mode === 'stock');
-            document.getElementById("btnIndex").classList.toggle("active", mode === 'index');
-        }
-
-        // Keyboard-friendly: press Enter to fetch
-        document.getElementById("symbolInput").addEventListener("keypress", e => {
-            if(e.key === "Enter") fetchNow();
-        });
-
-        // Initialize default view
-        setMode('stock');
-
-    </script>
-
-</body>
-</html>
-
