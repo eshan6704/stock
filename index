@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <style>
+    :root {
+      --primary-color: #4a6bff;
+      --text-secondary: #6c757d;
+      --border-radius: 14px;
+      --box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: Inter, system-ui, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #f5f7ff;
+      overflow: hidden;
+    }
+
+    /* ================= TOP BAR ================= */
+    .top-bar {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      padding: 6px 10px;
+      background: #fff;
+      box-shadow: var(--box-shadow);
+      margin: 6px;
+      border-radius: var(--border-radius);
+    }
+
+    .top-bar input,
+    .top-bar select,
+    .top-bar button {
+      height: 28px;
+      font-size: 11px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      padding: 0 8px;
+    }
+
+    .top-bar button {
+      cursor: pointer;
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .top-bar button.active {
+      background: #ff6b6b;
+    }
+
+    #statusBox {
+      margin-left: auto;
+      font-size: 10px;
+      padding: 4px 8px;
+      background: #f1f3f5;
+      border-radius: 12px;
+      white-space: nowrap;
+      overflow-x: auto;
+      max-width: 420px;
+    }
+
+    /* ================= MAIN ================= */
+    .main-content {
+      flex: 1;
+      display: flex;
+      padding: 6px;
+      overflow: hidden;
+    }
+
+    .panel {
+      flex: 1;
+      background: white;
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* 🔥 SCROLL FIX */
+    .content-wrapper {
+      flex: 1;
+      height: 0;                 /* CRITICAL */
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 8px;
+    }
+
+    /* ================= TABLE ================= */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-bottom: 16px;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: var(--primary-color);
+      color: white;
+      font-size: 11px;
+      text-transform: uppercase;
+      padding: 6px;
+      z-index: 2;
+    }
+
+    td {
+      padding: 6px;
+      border-bottom: 1px solid #eee;
+    }
+
+    tr:nth-child(even) {
+      background: #f8f9ff;
+    }
+
+    /* ================= STATES ================= */
+    .center-msg {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      font-size: 13px;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid #ddd;
+      border-top-color: var(--primary-color);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ================= TOP BAR ================= -->
+  <div class="top-bar">
+    <button class="active" id="btnStock" onclick="setMode('stock')">
+      <i class="fas fa-building"></i> Stock
+    </button>
+    <button id="btnIndex" onclick="setMode('index')">
+      <i class="fas fa-chart-line"></i> Index
+    </button>
+
+    <input id="symbolInput" value="ITC" style="width:80px">
+    <select id="reqType"></select>
+    <input type="date" id="dateInput" style="width:115px">
+
+    <button onclick="fetchNow()">
+      <i class="fas fa-download"></i> Fetch
+    </button>
+
+    <div id="statusBox">No fetch yet</div>
+  </div>
+
+  <!-- ================= MAIN ================= -->
+  <div class="main-content">
+    <div class="panel">
+      <div id="backendContent" class="content-wrapper">
+        <div class="center-msg">
+          <i class="fas fa-info-circle"></i>
+          Fetch data to view backend HTML
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= SCRIPT ================= -->
+  <script type="module">
+    import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
+
+    const state = {
+      mode: "stock",
+      client: null,
+      req: {
+               stock: [
+                    "info", "intraday", "daily", "nse_eq", "qresult", "result", "balance",
+                    "cashflow", "dividend", "split", "other", "stock_hist"
+                ],
+                index: [
+                    "indices", "nse_open", "nse_preopen", "nse_fno", "nse_fiidii", "nse_events",
+                    "nse_future", "nse_bhav", "nse_highlow", "index_history", "nse_largedeals",
+                    "nse_most_active", "largedeals_historical", "nse_bulkdeals",
+                    "nse_blockdeals", "index_pe_pb_div", "index_total_returns"
+                ]
+      }
+    };
+
+    function init() {
+      setDate();
+      populateReq();
+    }
+
+    function setDate() {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      dateInput.value = d.toISOString().split("T")[0];
+    }
+
+    function populateReq() {
+      reqType.innerHTML = state.req[state.mode]
+        .map(x => `<option>${x}</option>`).join("");
+    }
+
+    window.setMode = m => {
+      state.mode = m;
+      btnStock.classList.toggle("active", m === "stock");
+      btnIndex.classList.toggle("active", m === "index");
+      symbolInput.value = m === "index" ? "NIFTY 50" : "ITC";
+      populateReq();
+    };
+
+    async function connect() {
+      if (!state.client)
+        state.client = await Client.connect("eshan6704/backend");
+      return state.client;
+    }
+
+    window.fetchNow = async () => {
+      backendContent.innerHTML =
+        `<div class="center-msg"><div class="spinner"></div>Loading...</div>`;
+
+      try {
+        const client = await connect();
+        const res = await client.predict("/fetch_data", [
+          state.mode,
+          reqType.value,
+          symbolInput.value,
+          dateInput.value.split("-").reverse().join("-")
+        ]);
+
+        render(res.data || []);
+        updateStatus("Success", res);
+      } catch (e) {
+        backendContent.innerHTML =
+          `<div class="center-msg"><i class="fas fa-exclamation-triangle"></i>Error</div>`;
+        updateStatus("Error");
+      }
+    };
+
+    function render(blocks) {
+      backendContent.innerHTML = blocks.length
+        ? blocks.map(b => `<div>${b}</div><hr>`).join("")
+        : `<div class="center-msg">No content returned</div>`;
+    }
+
+    function updateStatus(status, res = null) {
+      const now = new Date().toLocaleTimeString("en-GB", { hour12: false });
+      let size = "";
+      if (res) {
+        size = ` | ${(new Blob([JSON.stringify(res)]).size / 1024).toFixed(2)} KB`;
+      }
+      statusBox.innerText =
+        `${state.mode},${reqType.value},${symbolInput.value} | ${status} | ${now}${size}`;
+    }
+
+    document.addEventListener("DOMContentLoaded", init);
+  </script>
+
+</body>
+</html>
